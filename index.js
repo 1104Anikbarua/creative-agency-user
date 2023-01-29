@@ -27,6 +27,13 @@ async function run() {
         await client.connect();
         const serviceCollection = client.db('creative_agency').collection('services')
 
+        app.get('/services', async (req, res) => {
+            const query = {};
+            const cursor = serviceCollection.find(query);
+            const result = await cursor.toArray();
+            console.log(result)
+        })
+
 
     } finally {
         // await client.close();
@@ -35,8 +42,8 @@ async function run() {
 run().catch(console.dir);
 
 app.get('/', (req, res) => {
-    console.log('connected')
-    // res.send('Hello World!')
+    // console.log('connected')
+    res.send('Hello World!')
 })
 
 app.listen(port, () => {
