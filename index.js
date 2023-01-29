@@ -1,5 +1,8 @@
 const express = require('express');
 const cors = require('cors');
+require('dotenv').config()
+const { MongoClient, ServerApiVersion } = require('mongodb');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -7,21 +10,24 @@ const port = process.env.PORT || 5000;
 app.use(express.json())
 app.use(cors())
 
+
+
+
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.cvfcjbu.mongodb.net/?retryWrites=true&w=majority`;
+const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
+// client.connect(err => {
+//     const collection = client.db("test").collection("devices");
+//     // perform actions on the collection object
+//     client.close();
+// });
+
+
 async function run() {
     try {
-        const database = client.db("sample_mflix");
-        const movies = database.collection("movies");
-        // Query for a movie that has the title 'The Room'
-        const query = { title: "The Room" };
-        const options = {
-            // sort matched documents in descending order by rating
-            sort: { "imdb.rating": -1 },
-            // Include only the `title` and `imdb` fields in the returned document
-            projection: { _id: 0, title: 1, imdb: 1 },
-        };
-        const movie = await movies.findOne(query, options);
-        // since this method returns the matched document, not a cursor, print it directly
-        console.log(movie);
+        await client.connect();
+        const serviceCollection = client.db('creative_agency').collection('services')
+
+
     } finally {
         // await client.close();
     }
