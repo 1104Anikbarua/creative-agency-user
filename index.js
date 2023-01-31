@@ -25,14 +25,15 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 async function run() {
     try {
         await client.connect();
-        const serviceCollection = client.db('creative_agency').collection('services')
+        const serviceCollection = client.db('creative_agency').collection('services');
 
-        app.get('/services', async (req, res) => {
+        // load 3 services from 5 service 
+        app.get('/v1/services', async (req, res) => {
             const query = {};
-            const cursor = serviceCollection.find(query);
+            const cursor = serviceCollection.find(query).limit(3);
             const result = await cursor.toArray();
-            console.log(result)
-        })
+            res.send(result)
+        });
 
 
     } finally {
