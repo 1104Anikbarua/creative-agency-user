@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config()
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
 
 const app = express();
@@ -34,6 +34,23 @@ async function run() {
             const result = await cursor.toArray();
             res.send(result)
         });
+        // load single service from 5 service 
+        app.get('/v1/service/:id', async (req, res) => {
+            const id = req.params.id;
+            // console.log(id)
+            const query = { _id: ObjectId(id) };
+            // console.log(query)
+            const result = await serviceCollection.findOne(query);
+            // console.log(result)
+            // const result = await cursor.toArray();
+            res.send(result)
+        });
+
+        // store client order 
+        app.post('v1/clientorder', async (req, res) => {
+            const orderDetails = req.body;
+            console.log(orderDetails)
+        })
 
 
     } finally {
