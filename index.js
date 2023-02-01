@@ -26,6 +26,7 @@ async function run() {
     try {
         await client.connect();
         const serviceCollection = client.db('creative_agency').collection('services');
+        const orderCollection = client.db('creative_agency').collection('orders')
 
         // load 3 services from 5 service 
         app.get('/v1/services', async (req, res) => {
@@ -47,9 +48,12 @@ async function run() {
         });
 
         // store client order 
-        app.post('v1/clientorder', async (req, res) => {
-            const orderDetails = req.body;
-            console.log(orderDetails)
+        app.post('/v1/clientorder', async (req, res) => {
+            const clientOrder = req.body;
+            console.log(clientOrder)
+            const result = await orderCollection.insertOne(clientOrder);
+            res.send(result);
+
         })
 
 
