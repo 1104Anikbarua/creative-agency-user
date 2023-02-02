@@ -28,6 +28,8 @@ async function run() {
         const serviceCollection = client.db('creative_agency').collection('services');
         const orderCollection = client.db('creative_agency').collection('orders');
         const reviewCollection = client.db('creative_agency').collection('reviews');
+        const projectQueryCollection = client.db('creative_agency').collection('projects');
+        const userCollection = client.db('creative_agency').collection('users')
 
         // load 3 services from 5 service 
         app.get('/v1/services', async (req, res) => {
@@ -48,6 +50,20 @@ async function run() {
             res.send(result)
         });
 
+        // identify already exist user in database
+        app.put('/v1/exist/:email', async (req, res) => {
+            const email = req.params.email;
+            const user = req.body;
+            const filter = { email: email };
+            const options = { upsert: true };
+            const updatedDoc = {
+                $set: user,
+            };
+            const result = await userCollection.updateOne(filter, updatedDoc, options);
+            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
+            res.send({ result, token })
+        })
+
         // store client order 
         app.post('/v1/clientorder', async (req, res) => {
             const clientOrder = req.body;
@@ -61,6 +77,13 @@ async function run() {
             const clientreview = req.body;
             console.log(clientreview)
             const result = await reviewCollection.insertOne(clientreview);
+            res.send(result);
+        })
+        // store project details 
+        app.post('/v1/projectdetails', async (req, res) => {
+            const projectdetails = req.body;
+            // console.log(projectdetails);
+            const result = await projectQueryCollection.insertOne(projectdetails);
             res.send(result);
         })
 
