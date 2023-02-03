@@ -7,6 +7,10 @@ const jwt = require('jsonwebtoken');
 const app = express();
 const port = process.env.PORT || 5000;
 
+const store_id = process.env.STORE_ID;
+const store_passwd = process.env.STORE_PASS;
+const is_live = false //true for live, false for sandbox
+
 app.use(express.json())
 app.use(cors())
 
@@ -21,6 +25,22 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 //     client.close();
 // });
 
+const verifyJwt = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    // console.log('verify inside jwt', authHeader)
+    if (!authHeader) {
+        return res.status(401).send({ message: 'Unauthorized access' });
+    }
+    const token = authHeader.split(' ')[1]
+    // console.log('TOKEN', token);
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'Forbidden Access' })
+        }
+        req.decoded = decoded;
+        next();
+    });
+}
 
 async function run() {
     try {
@@ -49,6 +69,35 @@ async function run() {
             // const result = await cursor.toArray();
             res.send(result)
         });
+        // load user order using user email
+        app.get('/v1/order', verifyJwt, async (req, res) => {
+            const email = req.query.email;
+            const decodedEmail = req.decoded.email;
+            if (email === decodedEmail) {
+                const query = { email: email };
+                const result = await orderCollection.find(query).toArray();
+                res.send(result)
+            }
+            else {
+                res.status(403).send({ message: 'Forbidden Access' })
+            }
+            // console.log(decodedEmail);
+            // console.log(email);
+            // const authorization = req.headers.authorization;
+            // console.log(authorization)
+            // console.log(query);
+            // console.log(result)
+        });
+
+        // load product for payment 
+        app.get('/v1/order/:id', verifyJwt, async (req, res) => {
+            const productId = req.params.id;
+            // console.log(productId)
+            const query = { _id: ObjectId(productId) }
+            // console.log(query)
+            const result = await orderCollection.findOne(query);
+            res.send(result);
+        })
 
         // identify already exist user in database
         app.put('/v1/exist/:email', async (req, res) => {
@@ -60,7 +109,7 @@ async function run() {
                 $set: user,
             };
             const result = await userCollection.updateOne(filter, updatedDoc, options);
-            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
+            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1d' })
             res.send({ result, token })
         })
 
