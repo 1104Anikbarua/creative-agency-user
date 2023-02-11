@@ -3,6 +3,8 @@ const cors = require('cors');
 require('dotenv').config()
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
+const SSLCommerzPayment = require('sslcommerz-lts');
+const { query } = require('express');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -50,6 +52,7 @@ async function run() {
         const reviewCollection = client.db('creative_agency').collection('reviews');
         const projectQueryCollection = client.db('creative_agency').collection('projects');
         const userCollection = client.db('creative_agency').collection('users')
+        const paymentCollection = client.db('creative_agency').collection('payments');
 
         // load 3 services from 5 service 
         app.get('/v1/services', async (req, res) => {
@@ -89,7 +92,7 @@ async function run() {
             // console.log(result)
         });
 
-        // load product for payment 
+        // load product for payment
         app.get('/v1/order/:id', verifyJwt, async (req, res) => {
             const productId = req.params.id;
             // console.log(productId)
@@ -97,7 +100,17 @@ async function run() {
             // console.log(query)
             const result = await orderCollection.findOne(query);
             res.send(result);
-        })
+        });
+
+        // app.get('/v1/update', async (req, res) => {
+        //     const email = req.query.email;
+        //     // console.log(email);
+        //     const query = { email: email };
+        //     const result = await paymentCollection.find(query).toArray();
+        //     res.send(result);
+        // })
+
+
 
         // identify already exist user in database
         app.put('/v1/exist/:email', async (req, res) => {
@@ -109,14 +122,14 @@ async function run() {
                 $set: user,
             };
             const result = await userCollection.updateOne(filter, updatedDoc, options);
-            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1d' })
+            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '5d' })
             res.send({ result, token })
-        })
+        });
 
         // store client order 
         app.post('/v1/clientorder', async (req, res) => {
             const clientOrder = req.body;
-            console.log(clientOrder)
+            // console.log(clientOrder)
             const result = await orderCollection.insertOne(clientOrder);
             res.send(result);
 
@@ -124,7 +137,7 @@ async function run() {
         // store client review
         app.post('/v1/clientreview', async (req, res) => {
             const clientreview = req.body;
-            console.log(clientreview)
+            // console.log(clientreview)
             const result = await reviewCollection.insertOne(clientreview);
             res.send(result);
         })
@@ -134,6 +147,95 @@ async function run() {
             // console.log(projectdetails);
             const result = await projectQueryCollection.insertOne(projectdetails);
             res.send(result);
+        });
+        // recive payment method and create payment invoice
+        app.put('/v1/payment/:email', verifyJwt, async (req, res) => {
+            const serviceId = req.params.id;
+            console.log('serviceId', serviceId);
+
+            // const userEmail = req.params.email;
+            // console.log('User email', userEmail);
+
+            const orderDetails = req.body;
+            console.log('orderDetails', orderDetails);
+            // console.log(new ObjectId().toString())
+            const transactionId = new ObjectId().toString();
+            const data = {
+                total_amount: orderDetails.servicePrice,
+                tran_id: transactionId, // use unique tran_id for each api call
+                success_url: `http://localhost:5000/v1/updatepayment/success/${transactionId}`,
+
+                fail_url: 'http://localhost:5000/v1/updatepayment/success',
+
+                cancel_url: 'http://localhost:5000/v1/updatepayment/success',
+                ipn_url: 'http://localhost:3030/ipn',
+                shipping_method: 'Courier',
+                product_name: orderDetails.serviceName,
+                product_category: 'Electronic',
+                product_profile: 'general',
+                cus_name: orderDetails.companyName,
+                cus_email: orderDetails.email,
+                cus_add1: 'Dhaka',
+                cus_add2: 'Dhaka',
+                cus_city: 'Dhaka',
+                cus_state: 'Dhaka',
+                cus_postcode: '1000',
+                cus_country: 'Bangladesh',
+                cus_phone: '01811111111',
+                cus_fax: '01711111111',
+                ship_name: 'Customer Name',
+                ship_add1: 'Dhaka',
+                ship_add2: 'Dhaka',
+                ship_city: 'Dhaka',
+                ship_state: 'Dhaka',
+                ship_postcode: 1000,
+                ship_country: 'Bangladesh',
+            };
+            // console.log(data);
+
+            const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
+            sslcz.init(data).then(apiResponse => {
+                // Redirect the user to payment gateway
+                let GatewayPageURL = apiResponse.GatewayPageURL;
+                const filter = { serviceId: serviceId };
+                const options = { upsert: true };
+                const updatedDoc = {
+                    $set: {
+                        serviceId: orderDetails.serviceId,
+                        email: orderDetails.email,
+                        companyName: orderDetails.companyName,
+                        projectDescription: orderDetails.
+                            projectDescription,
+                        paid: false,
+                        transactionId
+                    }
+                };
+                // console.log(updatedDoc)
+                orderCollection.updateOne(filter, updatedDoc, options);
+
+                // orderCollection.updateOne({
+                //     ...orderDetails,
+                //     paid: false,
+                //     transactionId,
+                // })
+
+                res.send({ url: GatewayPageURL })
+                // console.log('Redirecting to: ', GatewayPageURL)
+            });
+
+            // update order status
+            app.post('/v1/updatepayment/success/:id', async (req, res) => {
+                // console.log('success');
+
+                const transactionId = req.params.id;
+                const result = await orderCollection.updateOne({ transactionId }, { $set: { paid: true } });
+
+                if (result.modifiedCount > 0) {
+                    res.redirect(`http://localhost:3000/v1/updatepayment/success/${transactionId}`)
+                }
+            })
+
+
         })
 
 
